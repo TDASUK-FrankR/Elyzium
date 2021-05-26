@@ -1,0 +1,60 @@
+---
+- name: "Check for IBM Software and ILMT agent"
+  hosts: all
+  strategy: free
+  gather_facts: true
+  gather_subset: "!all,!min"
+  tasks:
+    - name: "Check IBM Software on WINDOWS endpoints"
+      become: true
+      become_user: system
+      become_method: runas
+      win_find:
+        paths: C:\
+        pattern: '*.swidtag,*.swtag,*.slmtag'
+        recurse: yes
+        file_type: "file"
+        excludes:
+      register: find_result
+      when: ansible_facts['os_family'] == 'Windows'
+
+    - name: "Check that BigFix Agent is installed on Windows"
+      become: true
+      become_user: system
+      become_method: runas
+      win_find:
+        paths: C:\
+        pattern: '*BigFix*.swidtag,*BigFix*.swtag,*BigFix*.slmtag'
+        recurse: yes
+        file_type: "file"
+        excludes:
+      register: find_BigFix
+      when: ansible_facts['os_family'] == 'Windows'
+
+    - name: "Check IBM SW & ILMT agent on UNIX/Linux endpoints"
+      become: true
+      find:
+        paths: /
+        pattern: '*.swidtag,*.swtag,*.slmtag'
+        recurse: yes
+        exclude: /proc
+      register: find_result
+      when: ansible_facts['os_family'] != 'Windows'
+
+    - name: "Check that BigFix Agent is installed on UNIX/Linux"
+      become: true 
+      find:
+        paths: /
+        pattern: '*BigFix*.swidtag,*BigFix*.swtag,*BigFix*.slmtag'
+        recurse: yes
+      register: find_BigFix
+      when: ansible_facts['os_family'] != 'Windows'
+
+    - name: "Test for ILMT with IBM Software"
+      failed_when: find_BigFix.matched == 0 and find_result.matched != 0 
+      debug:
+        msg:
+#          - "IBM Software Tags found = {{ find_result.files|map(attribute='path')|list }}"
+           - "The number of IBM SW matches = {{ find_result.matched }}" 
+#          - "ILMT Software Tags found = {{ find_BigFix.files|map(attribute='path')|list }}"
+           - "The number of ILMT SW matches = {{ find_BigFix.matched }}"
